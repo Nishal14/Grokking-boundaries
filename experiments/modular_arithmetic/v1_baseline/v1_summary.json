@@ -1,0 +1,21 @@
+{
+  "version": "v1_baseline",
+  "t_grok": 17100,
+  "accuracy": {
+    "before_grokking": 0.005495040736804818,
+    "after_grokking": 0.9492744792684041,
+    "change": 0.9437794385315993
+  },
+  "representation_rank": {
+    "before_grokking": 4.958333333333333,
+    "after_grokking": 1.3764044943820224,
+    "change": -3.5819288389513106
+  },
+  "attention_entropy": {
+    "before_grokking": 0.2806928081560987,
+    "after_grokking": 0.0454063492415174,
+    "change": -0.2352864589145813
+  },
+  "total_steps": 200000,
+  "note": "Metrics computed as averages over windows: before = steps < t_grok - 5000, after = steps > t_grok + 5000"
+}

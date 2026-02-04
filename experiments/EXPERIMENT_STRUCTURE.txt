@@ -1,0 +1,180 @@
+GROKKING EXPERIMENTS - STRUCTURE AND STATUS
+================================================================================
+Date: 2026-02-03
+Current Status: V2 ready for full 400k training
+
+EXPERIMENT OVERVIEW
+================================================================================
+
+V1 - BASELINE (Random 80% Split)
+  Directory: experiments/modular_arithmetic/v1_baseline/
+  Script: scripts/train_v1.py
+  Status: COMPLETE (200k steps)
+
+  Configuration:
+    - Split: Random 80% train / 20% test
+    - Steps: 200,000
+    - Seed: 42
+
+  Results:
+    - Grokking at: ~33,700 steps
+    - Final accuracy: 99%+
+    - Rank collapse: 5 -> 3 -> 2 -> 1
+    - Status: Valid baseline
+
+V2A - FAILED EXPERIMENT (Random 55% Split)
+  Directory: experiments/modular_arithmetic/v2a_interpolation_regime/
+  Script: scripts/train_v2.py (old version, now replaced)
+  Status: INVALID (negative control)
+
+  Configuration:
+    - Split: Random 55% train / 45% test
+    - Steps: 25,000 (sanity check only)
+    - Seed: 42
+
+  Results:
+    - Grokking at: 19,400 steps (FASTER than v1!)
+    - Rank behavior: 5 -> 28 (EXPANDED, wrong direction)
+    - Test accuracy: 90%+ at 19.4k
+
+  Diagnosis:
+    - Random splits preserve full operand/result coverage
+    - Allow interpolation regardless of coverage %
+    - Reduced coverage accelerates grokking via implicit regularization
+    - Preserved as negative control, DO NOT USE for analysis
+
+V2B - SANITY CHECK (Structured Split)
+  Directory: experiments/modular_arithmetic/v2b_conflict_split/
+  Script: scripts/train_v2b.py
+  Status: COMPLETE (sanity check passed)
+
+  Configuration:
+    - Split: Structured sum-based
+      Train: (a + b) mod 97 < 48  (results [0, 47])
+      Test:  (a + b) mod 97 >= 48 (results [48, 96])
+    - Steps: 20,000 (sanity check)
+    - Seed: 42
+
+  Results:
+    - Test accuracy: 0.00% (max 0.08%)
+    - Rank: 20-30 (stable, no collapse)
+    - Entropy: 0.095-0.365 (stable)
+    - Verdict: PASSED - grokking successfully delayed
+
+  Purpose:
+    - Validate structured split design before full training
+    - Confirm no early interpolation
+    - Preserved as sanity check archive
+
+V2 - FULL TRAINING (Structured Split)
+  Directory: experiments/modular_arithmetic/v2/
+  Script: scripts/train_v2.py (NEW, updated)
+  Status: READY TO RUN (not yet executed)
+
+  Configuration:
+    - Split: Structured sum-based (same as v2b)
+      Train: (a + b) mod 97 < 48  (results [0, 47])
+      Test:  (a + b) mod 97 >= 48 (results [48, 96])
+    - Steps: 400,000
+    - Seed: 42
+
+  Expected Results:
+    - Grokking window: 100k-300k steps
+    - Accuracy jump: 0% -> 90%+ (sharp)
+    - Rank collapse: ~30 -> ~5 (during grokking)
+    - Delay factor: 3-10x vs v1
+
+  Purpose:
+    - Official v2 experiment with validated structured split
+    - Compare delayed grokking with v1 baseline
+    - Demonstrate constraint-conflict effect on grokking timing
+
+DIRECTORY STRUCTURE
+================================================================================
+experiments/modular_arithmetic/
+├── v1_baseline/              [COMPLETE] V1 baseline (random 80%)
+│   ├── checkpoints/
+│   ├── logs/
+│   │   ├── metrics.json      (200k steps)
+│   │   └── analysis.json
+│   └── config.json
+│
+├── v2a_interpolation_regime/ [INVALID] Failed random 55% split
+│   ├── checkpoints/
+│   ├── logs/
+│   │   ├── metrics.json      (25k steps - sanity only)
+│   │   └── analysis.json
+│   ├── config.json
+│   └── EXPERIMENT_LABEL.txt  (explains why invalid)
+│
+├── v2b_conflict_split/       [COMPLETE] Sanity check (20k steps)
+│   ├── checkpoints/
+│   ├── logs/
+│   │   ├── metrics.json      (20k steps)
+│   │   └── analysis.json
+│   ├── config.json
+│   └── SANITY_CHECK_VERDICT.txt (passed)
+│
+└── v2/                       [PENDING] Full training (400k steps)
+    ├── (will be created when train_v2.py runs)
+    └── (expected: ~14-15 hours to complete)
+
+SCRIPTS STRUCTURE
+================================================================================
+scripts/
+├── train_v1.py               [READY] V1 baseline (200k steps)
+├── train_v2.py               [READY] V2 full training (400k steps)
+├── analyze_v2.py             [READY] Post-training analysis for v2/v2b
+├── archive_v1_baseline.py
+└── visualize.py
+
+Note: train_v2b.py removed (sanity check complete, no longer needed)
+
+RUNNING THE EXPERIMENTS
+================================================================================
+
+To run V2 full training (400k steps):
+  cd D:/Nishal/Grokking
+  source venv/Scripts/activate
+  python scripts/train_v2.py
+
+Duration: ~14-15 hours
+
+COMPARISON TABLE
+================================================================================
+Experiment | Split Type   | Coverage | Steps  | Grok Step | Status
+-----------|--------------|----------|--------|-----------|--------
+v1         | Random       | 80%      | 200k   | 33.7k     | Complete
+v2a        | Random       | 55%      | 25k    | 19.4k     | Invalid
+v2b        | Structured   | 49.5%    | 20k    | Not yet   | Sanity OK
+v2         | Structured   | 49.5%    | 400k   | TBD       | Ready
+
+KEY INSIGHTS
+================================================================================
+1. Random splits allow interpolation (v1, v2a)
+2. Reducing coverage accelerates grokking (v2a faster than v1)
+3. Structured splits force extrapolation (v2b, v2)
+4. Constraint conflict delays grokking (v2b sanity check: 0% at 20k)
+
+NEXT ACTIONS
+================================================================================
+1. Run: python scripts/train_v2.py
+2. Wait: ~14-15 hours for completion
+3. Analyze: Compare v2 vs v1 grokking dynamics
+4. Visualize: Generate comparison plots
+
+DOCUMENTATION
+================================================================================
+- experiments/V2_DIAGNOSIS_AND_REDESIGN.txt
+  Full diagnosis of v2a failure and v2b redesign
+
+- experiments/V2B_SANITY_CHECK_CRITERIA.txt
+  Success criteria for sanity checks
+
+- experiments/modular_arithmetic/v2b_conflict_split/SANITY_CHECK_VERDICT.txt
+  V2b sanity check results (PASSED)
+
+- src/dataset_structured.py
+  Structured split implementation
+
+================================================================================

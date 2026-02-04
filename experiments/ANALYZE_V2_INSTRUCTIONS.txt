@@ -1,0 +1,235 @@
+HOW TO RUN POST-TRAINING ANALYSIS FOR V2/V2B
+================================================================================
+Date: 2026-02-03
+Purpose: Step-by-step instructions for analyzing v2/v2b experiments
+
+OVERVIEW
+================================================================================
+A custom analysis script (scripts/analyze_v2.py) has been created to handle
+v2/v2b experiments that use structured splits. This script is equivalent to
+src/analyze.py but uses create_structured_dataloaders() instead of the
+random split version.
+
+WHEN TO RUN
+================================================================================
+
+FOR V2B (20k sanity check):
+  Status: Can run NOW (training already complete)
+  Purpose: Document that grokking did NOT occur
+  Command: python scripts/analyze_v2.py --experiment v2b_conflict_split
+
+FOR V2 (400k full training):
+  Status: Run AFTER training completes
+  Purpose: Full grokking analysis
+  Command: python scripts/analyze_v2.py --experiment v2
+
+STEP-BY-STEP INSTRUCTIONS
+================================================================================
+
+STEP 1: Verify Training Completed
+----------------------------------
+Before running analysis, ensure training finished successfully:
+
+  cd D:/Nishal/Grokking
+  ls -la experiments/modular_arithmetic/v2/checkpoints/
+
+Expected: Multiple checkpoint_step_*.pt files
+
+  ls -la experiments/modular_arithmetic/v2/logs/
+
+Expected: metrics.json and analysis.json files
+
+STEP 2: Activate Environment
+-----------------------------
+  cd D:/Nishal/Grokking
+  source venv/Scripts/activate
+
+STEP 3: Run Analysis
+--------------------
+For v2 (400k full training):
+  python scripts/analyze_v2.py --experiment v2
+
+For v2b (20k sanity check):
+  python scripts/analyze_v2.py --experiment v2b_conflict_split
+
+Optional: Specify t_grok manually:
+  python scripts/analyze_v2.py --experiment v2 --t_grok 150000
+
+STEP 4: Verify Output
+---------------------
+After analysis completes, check:
+  experiments/modular_arithmetic/v2/post_analysis.json
+
+This file contains:
+  - t_grok: Detected grokking transition step
+  - checkpoint_steps: Analyzed checkpoints
+  - test_accuracy: Accuracy at each checkpoint
+  - final_layer_rank: Rank at each checkpoint
+  - avg_entropy: Entropy at each checkpoint
+  - training_metrics: Full training logs
+  - analysis_metrics: Full analysis logs
+
+ANALYSIS OUTPUT STRUCTURE
+================================================================================
+{
+  "t_grok": <step number>,
+  "checkpoint_steps": [5000, 10000, ...],
+  "relative_steps": [-145000, -140000, ...],
+  "test_accuracy": [0.0012, 0.0015, ...],
+  "final_layer_rank": [28.5, 29.1, ...],
+  "avg_rank": [22.3, 23.1, ...],
+  "avg_entropy": [0.145, 0.139, ...],
+  "full_analyses": [...],
+  "training_metrics": {...},
+  "analysis_metrics": {...}
+}
+
+WHAT THE ANALYSIS DOES
+================================================================================
+
+1. Grokking Transition Detection (t_grok)
+   - Uses sliding window on test accuracy
+   - Finds step with sharpest accuracy increase
+   - Threshold: 15% increase within 5-step window
+
+2. Checkpoint Selection
+   - Selects checkpoints before, during, and after t_grok
+   - Default: 3 before, 2 near, 3 after transition
+   - Ensures good coverage across training
+
+3. Representation Rank Analysis
+   - Loads each checkpoint
+   - Computes effective rank per layer
+   - Tracks rank collapse during grokking
+
+4. Attention Entropy Analysis
+   - Computes entropy per layer
+   - Tracks entropy collapse during grokking
+
+5. Signal Alignment
+   - Aligns accuracy, rank, entropy vs step
+   - Computes relative steps from t_grok
+   - Identifies correlations
+
+EXPECTED RESULTS
+================================================================================
+
+FOR V2 (400k full training):
+  - t_grok: 100,000 - 300,000 steps
+  - Accuracy before t_grok: ~0-5%
+  - Accuracy after t_grok: 90-99%
+  - Rank before t_grok: ~20-30 (high)
+  - Rank after t_grok: ~5-10 (collapsed)
+  - Entropy: Gradual decline with sharp drop at t_grok
+
+FOR V2B (20k sanity check):
+  - t_grok: May fail to detect or find spurious signal
+  - Accuracy throughout: ~0%
+  - Rank throughout: ~20-30 (high, stable)
+  - Entropy: Low but stable
+  - Interpretation: No grokking occurred (expected)
+
+COMPARISON WITH V1
+================================================================================
+V1 baseline already has:
+  experiments/modular_arithmetic/v1_baseline/post_analysis.json
+
+Expected comparison:
+  Metric               | V1        | V2 (expected)
+  ---------------------|-----------|---------------
+  t_grok               | ~33,700   | 100k-300k
+  Grokking delay       | Baseline  | 3-10x
+  Accuracy before      | ~30%      | ~0-5%
+  Accuracy after       | ~99%      | 90-99%
+  Rank before          | 5         | 20-30
+  Rank after           | 1         | 5-10
+
+TROUBLESHOOTING
+================================================================================
+
+Error: "Experiment directory not found"
+  → Check experiment name spelling
+  → Ensure v2 training completed
+  → Use: python scripts/analyze_v2.py --experiment v2
+
+Error: "No checkpoints found"
+  → Verify checkpoints/ directory exists
+  → Check checkpoint_interval in config
+  → Ensure training saved checkpoints
+
+Error: "CUDA out of memory"
+  → Reduce batch size in config (analysis uses same batch size)
+  → Or run on CPU (slower): set device in script
+
+Warning: "Maximum accuracy increase below threshold"
+  → Normal for v2b (20k steps, no grokking expected)
+  → For v2 full: May indicate delayed or gradual grokking
+  → Check plots to verify transition
+
+NEXT STEPS AFTER ANALYSIS
+================================================================================
+
+1. Generate Plots
+   - Plot test_accuracy vs step (mark t_grok)
+   - Plot final_layer_rank vs step (mark t_grok)
+   - Plot avg_entropy vs step (mark t_grok)
+
+2. Compare with V1
+   - Overlay v1 and v2 accuracy plots
+   - Overlay v1 and v2 rank plots
+   - Verify delayed grokking
+
+3. Document Findings
+   - Grokking delay factor (t_grok_v2 / t_grok_v1)
+   - Rank collapse alignment
+   - Entropy collapse alignment
+
+VISUALIZATION REQUIREMENTS
+================================================================================
+Plots must be:
+  ✓ Directly comparable to v1 baseline plots
+  ✓ Same x-axis scale (steps)
+  ✓ Same y-axis scales (accuracy, rank, entropy)
+  ✓ t_grok marked clearly (vertical line)
+  ✓ No smoothing (unless v1 used it)
+  ✓ Same color scheme
+  ✓ Clear legend
+
+EXAMPLE COMMANDS
+================================================================================
+
+# Analyze v2 full training (after 400k steps complete)
+python scripts/analyze_v2.py --experiment v2
+
+# Analyze v2b sanity check (can run anytime)
+python scripts/analyze_v2.py --experiment v2b_conflict_split
+
+# Force specific t_grok (if auto-detection fails)
+python scripts/analyze_v2.py --experiment v2 --t_grok 180000
+
+# Check available experiments
+ls -la experiments/modular_arithmetic/
+
+HARD CONSTRAINTS COMPLIANCE
+================================================================================
+  ✓ Does NOT retrain
+  ✓ Does NOT modify training code
+  ✓ Does NOT modify src/analyze.py
+  ✓ Does NOT re-compute splits
+  ✓ Does NOT create/modify .md files
+  ✓ Uses existing analysis pipeline (adapted for structured splits)
+
+FILES CREATED
+================================================================================
+  scripts/analyze_v2.py                         Custom analysis script
+  experiments/POST_TRAINING_ANALYSIS_INSTRUCTIONS.txt   Overview
+  experiments/ANALYZE_V2_INSTRUCTIONS.txt       This file (detailed steps)
+
+STATUS
+================================================================================
+  ✓ Analysis script ready
+  ✓ Instructions documented
+  ⏳ Waiting for v2 training to complete
+  ⏳ Ready to analyze v2b (20k sanity) anytime
+
+================================================================================

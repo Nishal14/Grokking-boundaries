@@ -1,0 +1,27 @@
+EXPERIMENT: v2a_interpolation_regime
+STATUS: Invalid for grokking study (controlled negative result)
+DATE: 2026-02-03
+
+CONFIGURATION:
+- Split: 55% train / 45% test (RANDOM split)
+- Steps: 25,000 (sanity check only)
+- Seed: 42
+
+FAILURE MODE:
+Random split with reduced coverage (55%) does NOT create algorithmic hardness.
+It preserves full operand and result coverage, allowing pure interpolation.
+
+OBSERVED BEHAVIOR:
+- Grokking transition: step 19,400 (FASTER than v1 at 33,700)
+- Representation rank: 5 → 28 (EXPANDED instead of collapsing)
+- Test accuracy: 90%+ at 19.4k steps (violated green light criteria)
+
+ROOT CAUSE:
+Reduced coverage creates implicit regularization, accelerating transition
+to algorithmic solutions rather than delaying it.
+
+EVIDENCE VALUE:
+Demonstrates that random splits do not create constraint conflict.
+Preserved as negative control for comparison with structured splits.
+
+DO NOT USE THIS EXPERIMENT FOR GROKKING ANALYSIS.

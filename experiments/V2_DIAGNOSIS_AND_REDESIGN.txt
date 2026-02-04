@@ -1,0 +1,193 @@
+V2 FAILURE DIAGNOSIS AND EXPERIMENTAL REDESIGN
+================================================================================
+Date: 2026-02-03
+Status: HISTORICAL DOCUMENT - Process documentation for v2 redesign
+Note: train_v2b.py removed after sanity check completion (now use train_v2.py)
+
+ORIGINAL HYPOTHESIS (FAILED):
+================================================================================
+Reducing training coverage (80% → 55%) would delay grokking by making the
+task harder through data scarcity.
+
+Expected v2 behavior:
+  - Grokking delayed to 100k-300k steps (vs v1 at 33.7k)
+  - Similar rank collapse pattern (high → low)
+  - Extended memorization plateau
+
+ACTUAL V2A RESULTS (CONTRADICTORY):
+================================================================================
+v2a configuration:
+  - Split: Random 55% train / 45% test
+  - Duration: 25,000 steps (sanity check)
+  - Seed: 42 (identical to v1)
+
+Observed behavior:
+  ✗ Grokking at 19,400 steps (FASTER than v1 at 33,700)
+  ✗ Rank expanded 5 → 28 (OPPOSITE of expected collapse)
+  ✗ Test accuracy 90%+ at 19.4k (violated green light criteria)
+
+STEP 1: EXPERIMENTAL IDENTITY VERIFICATION
+================================================================================
+Status: PASSED
+
+Verified identical between v1 and v2a:
+  ✓ Random seed: 42
+  ✓ Model architecture: 4L/4H/256d/1024ff
+  ✓ Optimizer: AdamW (lr=0.001, wd=0.0)
+  ✓ Batch size: 256
+  ✓ Evaluation logic
+  ✓ Logging intervals
+
+Minor note: Train loader shuffle=True (standard, affects both equally)
+
+Conclusion: Failure NOT due to implementation differences.
+
+STEP 2: ROOT CAUSE DIAGNOSIS
+================================================================================
+Status: IDENTIFIED
+
+Analysis of random split structure:
+
+Random splits (regardless of coverage: 80%, 55%, 10%) preserve:
+  1. Full operand coverage: All values 0-96 appear in training
+  2. Full result coverage: All outputs 0-96 appear in training
+  3. No extrapolation required
+
+v1 (80% random):
+  - Train: 97/97 operands, 97/97 results
+  - Test requires: Feature combination only
+
+v2a (55% random):
+  - Train: 97/97 operands, 97/97 results
+  - Test requires: Feature combination only
+
+KEY INSIGHT:
+Random splits do NOT create algorithmic hardness. They allow pure
+interpolation through feature combination.
+
+WHY DID V2A GROK FASTER?
+Reducing coverage (80% → 55%) reduces memorization capacity, forcing the
+model toward algorithmic solutions SOONER via implicit regularization.
+
+This is the OPPOSITE of the intended effect.
+
+STEP 3: V2A AS CONTROLLED NEGATIVE RESULT
+================================================================================
+Status: PRESERVED
+
+Action taken:
+  - Renamed: experiments/modular_arithmetic/v2 → v2a_interpolation_regime
+  - Created: EXPERIMENT_LABEL.txt documenting failure mode
+  - Status: Invalid for grokking study, preserved as negative control
+
+Evidence value:
+  Demonstrates that random splits do not create constraint conflict,
+  regardless of coverage level.
+
+STEP 4: REDESIGNED SPLIT (SUM-BASED CONSTRAINT)
+================================================================================
+Status: IMPLEMENTED
+
+New split: Structured sum-based (Option A)
+
+Configuration:
+  Train: (a + b) mod 97 < 48  → results in [0, 47]
+  Test:  (a + b) mod 97 >= 48 → results in [48, 96]
+
+Properties:
+  ✓ Disjoint result ranges (zero overlap)
+  ✓ Full operand coverage (all values 0-96 in training)
+  ✓ Algorithmic extrapolation required
+  ✓ No interpolation possible
+  ✓ Balanced split (~50/50)
+
+Dataset sizes:
+  Total: 9,409 examples
+  Train: 4,656 examples (49.5%)
+  Test:  4,753 examples (50.5%)
+
+Implementation:
+  - Module: src/dataset_structured.py
+  - Validated: Result ranges confirmed disjoint
+  - Function: create_structured_dataloaders()
+
+Expected behavior:
+  - Extended memorization plateau (test acc ~0-5%)
+  - Delayed grokking transition (100k-300k steps)
+  - Sharp accuracy jump when algorithm is discovered
+  - Rank collapse during transition (high → low)
+
+STEP 5: V2B EXPERIMENT PREPARED
+================================================================================
+Status: READY FOR SANITY CHECK (NOT YET RUN)
+
+Script: scripts/train_v2b.py
+
+Configuration:
+  - Split: Structured sum-based (hardcoded in dataset)
+  - Sanity duration: 20,000 steps
+  - Full duration: TBD (200k-400k if sanity passes)
+  - Identical model/optimizer to v1/v2a
+
+Output directory:
+  experiments/modular_arithmetic/v2b_conflict_split/
+
+STEP 6: SUCCESS CRITERIA FOR V2B SANITY CHECK
+================================================================================
+Status: DEFINED
+
+Document: experiments/V2B_SANITY_CHECK_CRITERIA.txt
+
+ALL criteria must pass:
+  1. Test accuracy ≤ 5% throughout 20k steps
+  2. Representation rank ≥ 30 and flat
+  3. No early entropy collapse
+  4. No early accuracy jump
+
+If ANY criterion fails:
+  → STOP immediately
+  → Diagnose failure
+  → DO NOT proceed to full training
+
+If ALL criteria pass:
+  → Proceed to full training (200k-400k steps)
+  → Expect delayed grokking at 100k-300k
+  → Expect sharp rank collapse
+
+COMPARISON TABLE
+================================================================================
+Experiment  | Split Type | Grok Step | Rank @20k | Test Acc @20k | Status
+------------|------------|-----------|-----------|---------------|----------
+v1          | Random 80% | 33,700    | ~5        | ~35%          | Baseline
+v2a         | Random 55% | 19,400    | 23        | 90%+          | INVALID
+v2b         | Sum-based  | TBD       | TBD       | TBD           | PENDING
+
+NEXT ACTIONS
+================================================================================
+1. Review this diagnosis document
+2. Review: experiments/V2B_SANITY_CHECK_CRITERIA.txt
+3. Run sanity check: python scripts/train_v2b.py
+4. Wait for completion (~10-12 minutes)
+5. Analyze results against success criteria
+6. Decision:
+   - If PASS: Update train_v2b.py num_steps to 200k-400k
+   - If FAIL: Investigate and redesign
+
+DO NOT PROCEED TO FULL TRAINING WITHOUT SANITY CHECK VALIDATION.
+
+LESSONS LEARNED
+================================================================================
+1. Random data splits preserve interpolation structure
+2. Reducing coverage accelerates grokking via regularization
+3. Constraint conflict requires structural split design
+4. Sanity checks are mandatory before expensive training runs
+5. Negative results must be preserved as controls
+
+REFERENCES
+================================================================================
+- v1 baseline: experiments/modular_arithmetic/v1_baseline/
+- v2a (failed): experiments/modular_arithmetic/v2a_interpolation_regime/
+- v2b (pending): experiments/modular_arithmetic/v2b_conflict_split/
+- Structured dataset: src/dataset_structured.py
+- Training script: scripts/train_v2b.py
+- Success criteria: experiments/V2B_SANITY_CHECK_CRITERIA.txt

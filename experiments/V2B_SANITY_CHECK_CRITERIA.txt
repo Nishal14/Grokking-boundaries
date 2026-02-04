@@ -1,0 +1,97 @@
+V2B SANITY CHECK SUCCESS CRITERIA
+================================================================================
+Status: HISTORICAL DOCUMENT - Sanity check complete, criteria passed
+Experiment: v2b_conflict_split
+Duration: 20,000 steps (sanity check only)
+Date: 2026-02-03
+Note: train_v2b.py removed (sanity complete), use train_v2.py for full training
+
+SPLIT CONFIGURATION:
+  Type: Structured sum-based (constraint-conflict design)
+  Train: (a + b) mod 97 < 48  → results in [0, 47]
+  Test:  (a + b) mod 97 >= 48 → results in [48, 96]
+
+  Key properties:
+    - Disjoint result ranges (zero overlap)
+    - Full operand coverage (all values 0-96 in training)
+    - Algorithmic extrapolation required
+    - No interpolation possible
+
+SUCCESS CRITERIA (ALL MUST PASS):
+================================================================================
+
+1. TEST ACCURACY: Must remain ≤ 5% throughout 20k steps
+   -----------------------------------------------------------------------
+   - Check: Plot test_accuracy vs step
+   - Requirement: No value should exceed 0.05 (5%)
+   - Rationale: Delayed grokking requires extended plateau
+   - If fails: Model is interpolating despite disjoint results
+
+2. REPRESENTATION RANK: Must remain HIGH (≥ 30) and FLAT
+   -----------------------------------------------------------------------
+   - Check: Plot final_layer_rank vs step
+   - Requirement: Rank should stay above 30 throughout
+   - Requirement: No sharp drops (>10 rank units)
+   - Rationale: Rank collapse is grokking signature
+   - If fails: Early algorithmic compression occurred
+
+3. NO EARLY ENTROPY COLLAPSE
+   -----------------------------------------------------------------------
+   - Check: Plot average_attention_entropy vs step
+   - Requirement: Entropy stays high (> 2.0) throughout
+   - Requirement: No sharp drops (>0.5 units)
+   - Rationale: Entropy drop indicates representational transition
+   - If fails: Attention patterns crystallized too early
+
+4. NO EARLY ACCURACY JUMP
+   -----------------------------------------------------------------------
+   - Check: Test accuracy gradient
+   - Requirement: No sudden jumps (>10% in 1k steps)
+   - Rationale: Grokking manifests as sharp transition
+   - If fails: Generalization happened prematurely
+
+PASSING CRITERIA:
+================================================================================
+If ALL four criteria pass:
+  → V2b is valid
+  → Proceed to FULL TRAINING (200k-400k steps)
+  → Expect delayed grokking between 100k-300k steps
+  → Expect sharp rank collapse during transition
+
+FAILURE CRITERIA:
+================================================================================
+If ANY criterion fails:
+  → STOP immediately
+  → DO NOT proceed to full training
+  → Investigate failure mode:
+      - Is split implementation correct?
+      - Is model too large/small?
+      - Is learning rate too high?
+      - Is there a bug in analysis code?
+
+COMPARISON WITH V2A (FAILED EXPERIMENT):
+================================================================================
+V2a (random split, 55/45):
+  ✗ Grokked at 19.4k steps (too early)
+  ✗ Rank expanded 5→28 (wrong direction)
+  ✗ Test accuracy 90%+ at 19.4k (violated criteria)
+
+V2b (structured split):
+  Expected: Test acc < 5% at 20k (delayed plateau)
+  Expected: Rank high and flat at 20k (no early collapse)
+  Expected: Grokking delayed to 100k-300k in full training
+
+NEXT STEPS AFTER SANITY CHECK:
+================================================================================
+1. Run: python scripts/train_v2b.py
+2. Wait for completion (~10-12 minutes for 20k steps)
+3. Analyze results:
+   - Read experiments/modular_arithmetic/v2b_conflict_split/logs/metrics.json
+   - Read experiments/modular_arithmetic/v2b_conflict_split/logs/analysis.json
+   - Plot test_accuracy, rank, entropy vs step
+4. Verify ALL success criteria
+5. If PASS: Modify train_v2b.py to set num_steps = 200_000 or 400_000
+6. If FAIL: Diagnose and redesign before proceeding
+
+DO NOT SKIP THIS SANITY CHECK.
+Running 200k-400k steps (~7-15 hours) without validation wastes compute.

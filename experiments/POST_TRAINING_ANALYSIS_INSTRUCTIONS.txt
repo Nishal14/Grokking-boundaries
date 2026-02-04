@@ -1,0 +1,152 @@
+POST-TRAINING ANALYSIS INSTRUCTIONS
+================================================================================
+Date: 2026-02-03
+Purpose: Run post-training analysis after v2 training completes
+
+IMPORTANT CLARIFICATION
+================================================================================
+Current experiment status:
+  - v2b_conflict_split/ = 20k steps (sanity check) - COMPLETE
+  - v2/ = 400k steps (full training) - NOT YET RUN
+
+This document provides instructions for analyzing BOTH:
+  1. v2b sanity check (20k steps) - can analyze now
+  2. v2 full training (400k steps) - analyze after training completes
+
+HARD CONSTRAINTS
+================================================================================
+  ✓ Do NOT retrain
+  ✓ Do NOT modify training code
+  ✓ Do NOT modify analysis logic in src/analyze.py
+  ✓ Do NOT re-compute splits
+  ✓ Do NOT create or modify .md files
+
+ANALYSIS PIPELINE OVERVIEW
+================================================================================
+The existing analysis pipeline (src/analyze.py) performs:
+
+  1. Grokking transition detection (t_grok)
+     - Finds step where test accuracy sharply increases
+     - Uses sliding window to detect derivative peak
+
+  2. Representation rank analysis
+     - Computes effective rank per layer
+     - Tracks rank collapse during grokking
+
+  3. Attention entropy analysis
+     - Computes entropy per layer
+     - Tracks entropy collapse during grokking
+
+  4. Signal alignment
+     - Aligns accuracy, rank, entropy across training
+     - Identifies correlations
+
+  5. Output generation
+     - Saves to post_analysis.json
+     - Ready for plotting
+
+ISSUE WITH CURRENT ANALYZE.PY
+================================================================================
+The current src/analyze.py has a limitation:
+  - Hardcoded to use 'experiments/modular_arithmetic' directory
+  - Uses create_dataloaders() (random split version)
+  - Cannot handle v2/v2b (structured split) without modification
+
+WORKAROUND: Manual Analysis Script
+================================================================================
+Since we cannot modify src/analyze.py, create a custom analysis script
+for v2/v2b that uses create_structured_dataloaders().
+
+See: experiments/ANALYZE_V2_INSTRUCTIONS.txt for detailed steps
+
+WHEN TO RUN ANALYSIS
+================================================================================
+
+FOR V2B (20k sanity check) - Can run now:
+  - Status: Training complete
+  - Purpose: Verify no grokking occurred (expected)
+  - Expected: t_grok detection will fail or find late/weak transition
+
+FOR V2 (400k full training) - Run after training:
+  - Status: Not yet run
+  - Purpose: Full grokking analysis
+  - Expected: t_grok around 100k-300k steps
+  - Expected: Clear rank/entropy collapse
+
+EXPECTED OUTPUTS
+================================================================================
+
+For each experiment, analysis produces:
+  1. post_analysis.json with:
+     - t_grok: Grokking transition step
+     - checkpoint_steps: Analyzed checkpoints
+     - test_accuracy: Accuracy at each checkpoint
+     - final_layer_rank: Rank at each checkpoint
+     - avg_entropy: Entropy at each checkpoint
+
+  2. Plots (to be generated):
+     - Accuracy vs step (mark t_grok)
+     - Rank vs step (mark t_grok)
+     - Entropy vs step (mark t_grok)
+
+COMPARISON WITH V1
+================================================================================
+V1 baseline already has:
+  - experiments/modular_arithmetic/v1_baseline/post_analysis.json
+  - Full 200k step analysis
+
+V2 analysis must be:
+  - Directly comparable to v1
+  - Same metrics computed
+  - Same visualization format
+  - No smoothing (unless v1 used it)
+
+NEXT STEPS
+================================================================================
+
+STEP 1: Wait for v2 training to complete
+  - Run: python scripts/train_v2.py
+  - Duration: ~14-15 hours (400k steps)
+  - Output: experiments/modular_arithmetic/v2/
+
+STEP 2: Run post-training analysis on v2
+  - Use custom analysis script (see ANALYZE_V2_INSTRUCTIONS.txt)
+  - Generate post_analysis.json
+  - Verify t_grok detection
+
+STEP 3: Generate plots
+  - Accuracy vs step
+  - Rank vs step
+  - Entropy vs step
+  - Mark t_grok clearly
+
+STEP 4: Compare with v1
+  - Overlay v1 and v2 plots
+  - Verify delayed grokking
+  - Confirm rank collapse alignment
+
+OPTIONAL: Analyze v2b sanity check
+  - Purpose: Document that grokking did NOT occur at 20k
+  - Expected: No clear t_grok or very late detection
+  - Status: Can run anytime
+
+FILES TO CHECK
+================================================================================
+After v2 training completes, verify these exist:
+  ✓ experiments/modular_arithmetic/v2/config.json
+  ✓ experiments/modular_arithmetic/v2/logs/metrics.json
+  ✓ experiments/modular_arithmetic/v2/logs/analysis.json
+  ✓ experiments/modular_arithmetic/v2/checkpoints/checkpoint_step_*.pt
+
+These are REQUIRED inputs for post-training analysis.
+
+TROUBLESHOOTING
+================================================================================
+If analysis fails:
+  1. Check that v2 training completed successfully
+  2. Verify all checkpoint files exist
+  3. Verify logs/metrics.json and logs/analysis.json exist
+  4. Check GPU availability for checkpoint loading
+  5. Ensure structured dataloader is used (not random split version)
+
+================================================================================
