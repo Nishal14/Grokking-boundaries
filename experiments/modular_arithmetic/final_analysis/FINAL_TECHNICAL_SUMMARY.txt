@@ -130,5 +130,5 @@ Preserved experiment directories:
   - experiments/modular_arithmetic/v3_2_minimal_overlap/
 
 ================================================================================
-Experiments concluded. No further training required.
+Experiments concluded. 
 ================================================================================
