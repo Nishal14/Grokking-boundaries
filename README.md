@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-This repository investigates the **grokking phenomenon** in neural networks—the
+This repository investigates the **grokking phenomenon** in neural networks-the
 delayed transition from memorization to generalization that occurs long after
 training loss has plateaued.
 
